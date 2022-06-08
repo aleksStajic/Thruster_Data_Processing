@@ -1,6 +1,9 @@
 # Import libraries #
 import numpy as np
 import pandas as pd
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import seaborn as sns; sns.set()
 
 # Read .log file #
 file_location = r"C:\Users\seamo\OneDrive\Desktop\Thruster_Tests\20220603_S_100_50_5_STD_STD_Filter_Output.log"
@@ -27,10 +30,18 @@ for line in range(len(lines) - 1):
         lever_arm_ratio = float(sf[4]) 
     elif line >= 5: # Get data points, applying scaling factors 
         current_line = lines[line].split()
-        # <need to collect timestamps as well>
+        time.append(current_line[1])
         force.append(float(current_line[2]) * sf_force)
         current.append(float(current_line[3]) * sf_current)
         voltage.append(float(current_line[5]) * sf_voltage)
 
 # At this point, force[], current[] and voltage[] contain all respective raw data points in list format
-print(voltage)
+
+# Convert force, current and voltage lists into NumPy arrays #
+force = np.array(force)
+current = np.array(current)
+voltage = np.array(voltage)
+
+# Create dataframe with Pandas # 
+df = pd.DataFrame({"Force": force, "Current": current, "Voltage": voltage}, index = time)
+print(df.Force)
