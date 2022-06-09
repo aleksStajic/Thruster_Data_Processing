@@ -5,6 +5,14 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import seaborn as sns; sns.set()
 
+# Function definitions #
+# func: get_seconds
+# param: formatted timestamp string following hh:mm:ss.000
+# returns: total number of seconds timestamp corresponds to counting from 00:00:00.000
+def get_seconds(time_str):
+    h,m,s = time_str.split(':')
+    return float(h) * 3600 + float(m) * 60 + float(s)
+
 # Read .log file #
 file_location = r"C:\Users\seamo\OneDrive\Desktop\Thruster_Tests\20220603_S_100_50_5_STD_STD_Filter_Output.log"
 # r flag indicates a "raw" string, which means backslashes are treated as characters, not escape sequences 
@@ -30,7 +38,7 @@ for line in range(len(lines) - 1):
         lever_arm_ratio = float(sf[4]) 
     elif line >= 5: # Get data points, applying scaling factors 
         current_line = lines[line].split()
-        time.append(current_line[1])
+        time.append(get_seconds(current_line[1])) # time is a list containing floating point second values 
         force.append(float(current_line[2]) * sf_force)
         current.append(float(current_line[3]) * sf_current)
         voltage.append(float(current_line[5]) * sf_voltage)
@@ -41,7 +49,13 @@ for line in range(len(lines) - 1):
 force = np.array(force)
 current = np.array(current)
 voltage = np.array(voltage)
+time = np.array(time)
+
+# Format timestamps such that time values are the value in seconds since beginning automated test #
+ref_time = time[0]
+for i in range(0, len(time)):
+    time[i] = time[i] - ref_time
 
 # Create dataframe with Pandas # 
 df = pd.DataFrame({"Force": force, "Current": current, "Voltage": voltage}, index = time)
-print(df.Force)
+print(df)
