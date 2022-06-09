@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
-import matplotlib.pyplot as plt ; plt.style.use('classic')
+import matplotlib.pyplot as plt; plt.style.use('classic')
 import seaborn as sns; sns.set()
 
 # Function definitions #
@@ -14,7 +14,7 @@ def get_seconds(time_str):
     return float(h) * 3600 + float(m) * 60 + float(s)
 
 # Read .log file #
-file_location = r"C:\Users\seamo\OneDrive\Desktop\Thruster_Tests\20220603_S_100_50_5_STD_STD_Filter_Output.log" 
+file_location = r"C:\Users\seamo\OneDrive\Desktop\Thruster_Tests\20220609_S_100_50_5_STD_STD_Filter_GND1Shorted.log" 
 try:
     fin = open(file_location, 'r') # fin is assigned to the file object returned by open()
     lines = fin.readlines() # readlines() method returns a list containing each line of the file in string format
@@ -59,17 +59,18 @@ for t in range(len(time)):
 df_data = pd.DataFrame({"Force": force, "Current": current, "Voltage": voltage}, index = time)
 
 # Graph time series plots with Matplotlib #
-fig, ax = plt.subplots(3) 
+fig, ax = plt.subplots(3, constrained_layout = True) #creates a figure and a set of subplots, returns tuple of (Figure, Axes)
+fig.suptitle("Current, voltage, force vs. time (raw)", fontsize = 16)
 for plot in range(len(ax)): ax[plot].set_xlabel("Time [s]")
 
-ax[0].plot(df_data.index, df_data.Current, '.') # Current vs. time
+ax[0].plot(df_data.index, df_data.Current, '.') # Current vs. time scatter
 ax[0].set_ylabel("Current (raw) [A]")
-ax[0].set_ylim(-10,15)
+ax[0].set_ylim(-15,15)
 
-ax[1].plot(df_data.index, df_data.Voltage, '.') # Voltage vs. time
+ax[1].plot(df_data.index, df_data.Voltage, '.') # Voltage vs. time scatter
 ax[1].set_ylabel("Voltage (raw) [A]")
 
-ax[2].plot(df_data.index, df_data.Force, '.') # Force/thrust vs. time
+ax[2].plot(df_data.index, df_data.Force, '.') # Force/thrust vs. time scatter
 ax[2].set_ylabel("Force (raw) [kgf]")
 
 plt.show()
@@ -78,4 +79,7 @@ plt.show()
 peaks = np.array([force.max(), current.max(), voltage.max()])
 troughs = np.array([force.min(), current.min(), voltage.min()])
 df_peaks = pd.DataFrame({"Max (raw)": peaks, "Min (raw)": troughs}, index = ["Force", "Current", "Voltage"])
-print(df_peaks.index)
+print("\n", df_peaks)
+
+# Pre-process data (clean up rails/outliers, re-sample using pandas) #
+  
