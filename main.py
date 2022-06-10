@@ -1,4 +1,5 @@
 # Import libraries #
+import os
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
@@ -13,8 +14,14 @@ def get_seconds(time_str):
     h,m,s = time_str.split(':')
     return float(h) * 3600 + float(m) * 60 + float(s)
 
+# Details for saving figures of interest, change as preferred #
+ts_file = r"\ts.png"
+ct_file = r"\ct.png"
+fig_folder = r"\Figures"
+my_path = r"C:\Users\seamo\OneDrive\Desktop\learnpython\Thruster_Data_Processing"
+
 # Read .log file #
-file_location = r"C:\Users\seamo\OneDrive\Desktop\Thruster_Tests\20220609_S_100_50_5_STD_STD_Filter_GND1Shorted.log" 
+file_location = r"C:\Users\seamo\OneDrive\Desktop\Thruster_Tests\20220610_S_100_50_5_STD_STD_NoFilters_GND1ShortedBoth.log" 
 try:
     fin = open(file_location, 'r') # fin is assigned to the file object returned by open()
     lines = fin.readlines() # readlines() method returns a list containing each line of the file in string format
@@ -45,10 +52,13 @@ for line in range(len(lines) - 1):
 # At this point, force[], current[] and voltage[] contain all respective raw data points in list format
 
 # Convert force, current and voltage lists into NumPy arrays #
-force = np.array(force) * sf_force
+force = np.array(force) * sf_force # apply scaling factors 
 current = np.array(current) * sf_current
 voltage = np.array(voltage) * sf_voltage
 time = np.array(time)
+
+# Compute power #
+power = np.multiply(current, voltage)
 
 # Format timestamps such that time values are the value in seconds since beginning automated test #
 ref_time = time[0]
@@ -56,30 +66,45 @@ for t in range(len(time)):
     time[t] = time[t] - ref_time
 
 # Create dataframe with Pandas # 
-df_data = pd.DataFrame({"Force": force, "Current": current, "Voltage": voltage}, index = time)
+df_data = pd.DataFrame({"Force": force, "Current": current, "Voltage": voltage, "Power": power}, index = time)
 
 # Graph time series plots with Matplotlib #
-fig, ax = plt.subplots(3, constrained_layout = True) #creates a figure and a set of subplots, returns tuple of (Figure, Axes)
-fig.suptitle("Current, voltage, force vs. time (raw)", fontsize = 16)
-for plot in range(len(ax)): ax[plot].set_xlabel("Time [s]")
+figt, axt = plt.subplots(3, constrained_layout = True) #creates a figure and a set of subplots, subplots() returns tuple of (Figure, Axes)
+figt.suptitle("Current, voltage, force vs. time (raw)", fontsize = 16)
+for plot in range(len(axt)): axt[plot].set_xlabel("Time [s]")
 
-ax[0].plot(df_data.index, df_data.Current, '.') # Current vs. time scatter
-ax[0].set_ylabel("Current (raw) [A]")
-ax[0].set_ylim(-15,15)
+axt[0].plot(df_data.index, df_data["Current"], '.') # Current vs. time scatter
+axt[0].set_ylabel("Current (raw) [A]")
+axt[0].set_ylim(-15,15)
 
-ax[1].plot(df_data.index, df_data.Voltage, '.') # Voltage vs. time scatter
-ax[1].set_ylabel("Voltage (raw) [A]")
+axt[1].plot(df_data.index, df_data["Voltage"], '.') # Voltage vs. time scatter
+axt[1].set_ylabel("Voltage (raw) [A]")
 
-ax[2].plot(df_data.index, df_data.Force, '.') # Force/thrust vs. time scatter
-ax[2].set_ylabel("Force (raw) [kgf]")
-
-plt.show()
+axt[2].plot(df_data.index, df_data["Force"], '.') # Force/thrust vs. time scatter
+axt[2].set_ylabel("Force (raw) [kgf]")
 
 # Display peak values from raw data #
-peaks = np.array([force.max(), current.max(), voltage.max()])
-troughs = np.array([force.min(), current.min(), voltage.min()])
-df_peaks = pd.DataFrame({"Max (raw)": peaks, "Min (raw)": troughs}, index = ["Force", "Current", "Voltage"])
+peaks = np.array([np.amax(force), np.amax(current), np.amax(voltage), np.amax(power)])
+troughs = np.array([np.min(force), np.amin(current), np.amin(voltage), np.amin(power)])
+df_peaks = pd.DataFrame({"Max (raw)": peaks, "Min (raw)": troughs}, index = ["Force", "Current", "Voltage", "Power"])
 print("\n", df_peaks)
 
+# Graph thrust vs. current using Matplotlib #
+figc = plt.figure()
+figc.suptitle("Thrust vs. current", fontsize = 16)
+axc = plt.axes()
+axc.plot(df_data["Current"], df_data["Force"], '.')
+axc.set_ylabel("Thrust [kgf]")
+axc.set_xlabel("Current [A]")
+
+# Save figures #
+if not os.path.isdir(my_path + fig_folder):
+    os.makedirs(my_path + fig_folder)
+figt.savefig(fig_folder[1:len(fig_folder)] + ts_file)
+figc.savefig(fig_folder[1:len(fig_folder)] + ct_file)
+
 # Pre-process data (clean up rails/outliers, re-sample using pandas) #
-  
+
+# Display all plots -> last action in program #
+#plt.show() 
+# For power, I need to figure out how to plot max power for reverse direction
