@@ -21,7 +21,7 @@ fig_folder = r"\Figures"
 my_path = r"C:\Users\seamo\OneDrive\Desktop\learnpython\Thruster_Data_Processing"
 
 # Read .log file #
-file_location = r"C:\Users\seamo\OneDrive\Desktop\Thruster_Tests\20220610_S_100_50_5_STD_STD_NoFilters_GND1ShortedBoth.log" 
+file_location = r"C:\Users\Aleksandar\Desktop\Seamor_Thruster_Tests\20220603_S_100_50_5_STD_STD_NoFilter.log" 
 try:
     fin = open(file_location, 'r') # fin is assigned to the file object returned by open()
     lines = fin.readlines() # readlines() method returns a list containing each line of the file in string format
@@ -98,13 +98,13 @@ axc.set_ylabel("Thrust [kgf]")
 axc.set_xlabel("Current [A]")
 
 # Save figures #
-if not os.path.isdir(my_path + fig_folder):
-    os.makedirs(my_path + fig_folder)
-figt.savefig(fig_folder[1:len(fig_folder)] + ts_file)
-figc.savefig(fig_folder[1:len(fig_folder)] + ct_file)
+#if not os.path.isdir(my_path + fig_folder):
+#    os.makedirs(my_path + fig_folder)
+#figt.savefig(fig_folder[1:len(fig_folder)] + ts_file)
+#figc.savefig(fig_folder[1:len(fig_folder)] + ct_file)
 
 # Pre-process data (clean up rails/outliers, re-sample using pandas) #
 
 # Display all plots -> last action in program #
-#plt.show() 
+plt.show() 
 # For power, I need to figure out how to plot max power for reverse direction
