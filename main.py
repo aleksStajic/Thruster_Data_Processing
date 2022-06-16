@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt; plt.style.use('classic')
 import seaborn as sns; sns.set()
+from scipy import stats
 
 ### Function definitions ###
 # func: user_in
@@ -22,7 +23,7 @@ def user_in(msg):
             return result
 
 ### Details for saving figures/files of interest, change naming style as preferred ###
-my_path = os.path.dirname(__file__) 
+my_path = os.path.dirname(__file__) # path where script is saved
 data_folder = "\\test_data"
 ts_file = "\\ts.png"
 ct_file = "\\ct.png"
@@ -45,7 +46,7 @@ while True:
 
 ### Parse file and collect force, current and voltage data points into lists ###
 # Try to make modular eventually, as in being able to parse any file loosely formatted the same way 
-force = []; current = []; voltage = []; time = []
+force = []; current = []; voltage = []; time = []; time2 = []
 line = 0
 current_line = lines[line].split()
 while "<end" not in current_line and line < len(lines) - 1:
@@ -83,7 +84,7 @@ for t in range(len(time)):
 ### Create dataframe with Pandas ###
 df_data = pd.DataFrame({"Force": force, "Current": current, "Voltage": voltage, "Power": power}, index = time)
 
-### Graph time series plots with Matplotlib ###
+### Graph raw time series plots with Matplotlib ###
 figt, axt = plt.subplots(3, constrained_layout = True) #creates a figure and a set of subplots, subplots() returns tuple of (Figure, Axes)
 figt.suptitle("Current, voltage, force vs. time (raw)", fontsize = 16)
 for plot in range(len(axt)): axt[plot].set_xlabel("Time [s]")
@@ -109,13 +110,28 @@ axc.set_xlabel("Current [A]")
 
 # For power, I need to figure out how to plot max power for reverse direction (this will do for now)
 pmin = power[0]
-for i in range(len(power) - 1):
+for i in range(len(power)):
     if(abs(power[i]) > abs(pmin) and voltage[i] < 0 and current[i] < 0): pmin = power[i]
 
 ### Determine and store peak values from raw data into Pandas dataframe ###
 peaks = np.array([np.amax(force), np.amax(current), np.amax(voltage), np.amax(power)])
-troughs = np.array([np.min(force), np.amin(current), np.amin(voltage), pmin])
+troughs = np.array([abs(np.min(force)), abs(np.amin(current)), abs(np.amin(voltage)), pmin])
 df_extrema = pd.DataFrame({"Max forward (raw)": peaks, "Max reverse (raw)": troughs}, index = ["Force", "Current", "Voltage", "Power"])
+
+### Use Linear Regression to determine thrust vs. current slope (forward and reverse) ###
+slope, intercept, r, p, std_err = stats.linregress(current, force)
+
+def myfunc(current):
+  return slope * current + intercept
+
+mymodel = list(map(myfunc, current))
+
+plt.scatter(current, force)
+plt.plot(current, mymodel)
+print(r)
+plt.show()
+
+### Determine thrust vs. current intercepts -> get length of dead band ###
 
 ### Save figures and files ###
 if not os.path.isdir(my_path + data_folder + fig_folder):
