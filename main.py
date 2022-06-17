@@ -68,7 +68,7 @@ while "<end" not in current_line and line < len(lines) - 1:
 # At this point, force[], current[] and voltage[] contain all respective raw data points in list format
 
 ### Convert force, current and voltage lists into NumPy arrays ###
-force = np.array(force) * sf_force # apply scaling factors 
+force = np.array(force) * sf_force * lever_arm_ratio # apply scaling factors 
 current = np.array(current) * sf_current
 voltage = np.array(voltage) * sf_voltage
 time = np.array(time)
@@ -119,6 +119,11 @@ troughs = np.array([abs(np.min(force)), abs(np.amin(current)), abs(np.amin(volta
 df_extrema = pd.DataFrame({"Max forward (raw)": peaks, "Max reverse (raw)": troughs}, index = ["Force", "Current", "Voltage", "Power"])
 
 ### Use Linear Regression to determine thrust vs. current slope (forward and reverse) ###
+# Determine only forward direction current/thrust values
+# Determine only reverse direction current/thrust values
+# Will have to somehow figure out how to compute length of dead band using line intercepts
+# Use current as an indicator of when the motor is in reverse direction, and then match these indices
+# the thrust value -> split up the graph into reverse and forward directions this way
 slope, intercept, r, p, std_err = stats.linregress(current, force)
 
 def myfunc(current):
@@ -128,8 +133,6 @@ mymodel = list(map(myfunc, current))
 
 plt.scatter(current, force)
 plt.plot(current, mymodel)
-print(r)
-plt.show()
 
 ### Determine thrust vs. current intercepts -> get length of dead band ###
 
@@ -145,7 +148,6 @@ with open(my_path + data_folder + "\\extrema.txt", mode = 'w') as file_object:
 ### Pre-process data (clean up rails/outliers, re-sample using pandas) ###
 
 ### Display all plots, data of interest -> last action in program ###
-print("\n", df_extrema)
 plt.show() 
 
 

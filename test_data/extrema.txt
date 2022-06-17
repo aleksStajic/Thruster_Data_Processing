@@ -1,5 +1,5 @@
          Max forward (raw)  Max reverse (raw)
-Force             0.915527           1.831055
-Current          10.879035          10.486032
-Voltage          48.289967          45.101278
-Power           522.472784         472.664899
+Force            38.309059                0.0
+Current           0.190547                0.0
+Voltage           1.493794                0.0
+Power             0.241189                0.0
