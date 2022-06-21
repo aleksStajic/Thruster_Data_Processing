@@ -99,15 +99,6 @@ axt[1].set_ylabel("Voltage (raw) [A]")
 axt[2].plot(df_data.index, df_data["Force"], '.') # Force/thrust vs. time scatter
 axt[2].set_ylabel("Force (raw) [kgf]")
 
-### Graph thrust vs. current using Matplotlib ###
-figc = plt.figure()
-figc.suptitle("Thrust vs. current", fontsize = 16)
-axc = plt.axes()
-
-axc.plot(df_data["Current"], df_data["Force"], '.')
-axc.set_ylabel("Thrust [kgf]")
-axc.set_xlabel("Current [A]")
-
 # For power, I need to figure out how to plot max power for reverse direction (this will do for now)
 pmin = power[0]
 for i in range(len(power)):
@@ -118,21 +109,65 @@ peaks = np.array([np.amax(force), np.amax(current), np.amax(voltage), np.amax(po
 troughs = np.array([abs(np.min(force)), abs(np.amin(current)), abs(np.amin(voltage)), pmin])
 df_extrema = pd.DataFrame({"Max forward (raw)": peaks, "Max reverse (raw)": troughs}, index = ["Force", "Current", "Voltage", "Power"])
 
-### Use Linear Regression to determine thrust vs. current slope (forward and reverse) ###
-# Determine only forward direction current/thrust values
-# Determine only reverse direction current/thrust values
-# Will have to somehow figure out how to compute length of dead band using line intercepts
-# Use current as an indicator of when the motor is in reverse direction, and then match these indices
-# the thrust value -> split up the graph into reverse and forward directions this way
-slope, intercept, r, p, std_err = stats.linregress(current, force)
+### Graph thrust vs. current using Matplotlib ###
+# Eventually use zero cross method to "overlay periods" by taking averages (assume phase shift is zero)
+
+# Seperate forward/reverse direction current, thrust and voltage values, use voltage plot as the zero cross reference
+num_periods = 5
+current_f = []; force_f = []; voltage_f = []
+current_r = []; force_r = []; voltage_r = []
+i = j = 0
+
+while(voltage[i] < 0 and i < len(voltage) - 1): i += 1 # get to zero cross of voltage graph
+for j in range(num_periods):
+    while(voltage[i] >= 0 and i < len(voltage) - 1): # get forward current, force and voltage values
+        current_f.append(current[i])
+        force_f.append(force[i])
+        voltage_f.append(voltage[i])
+        i += 1
+    while(voltage[i] < 0 and i < len(voltage) - 1): # get reverse current, force and voltage values
+        current_r.append(current[i])
+        force_r.append(force[i])
+        voltage_r.append(voltage[i])
+        i += 1
+
+# Convert lists to NumPy arrays
+current_f = np.array(current_f); force_f = np.array(force_f); voltage_f = np.array(voltage_f)
+current_r = np.array(current_r); force_r = np.array(force_r); voltage_r = np.array(voltage_r)
+
+### Use Linear Regression to determine thrust vs. current slopes (forward and reverse) ###
+# Determine forward direction thrust vs. current trendline
+slope, intercept, r, p, std_err = stats.linregress(current_f, force_f)
 
 def myfunc(current):
   return slope * current + intercept
+mymodel_f = list(map(myfunc, current_f))
 
-mymodel = list(map(myfunc, current))
+# Determine reverse direction thrust vs. current trendline
+slope, intercept, r, p, std_err = stats.linregress(current_r, force_r)
+mymodel_r = list(map(myfunc, current_r))
 
-plt.scatter(current, force)
-plt.plot(current, mymodel)
+# Graph forward direction thrust vs. current
+figc_f = plt.figure()
+figc_f.suptitle("Thrust vs. current (forward)", fontsize = 16)
+axc_f = plt.axes()
+
+axc_f.set_ylabel("Thrust [kgf]")
+axc_f.set_xlabel("Current [A]")
+
+plt.scatter(current_f, force_f)
+plt.plot(current_f, mymodel_f) # overlays trendline on Thrust vs. current scatter plot 
+
+# Graph reverse direction thrust vs. current
+figc_r = plt.figure()
+figc_r.suptitle("Thrust vs. current (reverse)", fontsize = 16)
+axc_r = plt.axes()
+
+axc_r.set_ylabel("Thrust [kgf]")
+axc_r.set_xlabel("Current [A]")
+
+plt.scatter(current_r, force_r)
+plt.plot(current_r, mymodel_r)
 
 ### Determine thrust vs. current intercepts -> get length of dead band ###
 
@@ -140,7 +175,7 @@ plt.plot(current, mymodel)
 if not os.path.isdir(my_path + data_folder + fig_folder):
     os.makedirs(my_path + data_folder + fig_folder)
 figt.savefig(my_path + data_folder + fig_folder + ts_file)
-figc.savefig(my_path + data_folder + fig_folder + ct_file)
+figc_f.savefig(my_path + data_folder + fig_folder + ct_file)
 
 with open(my_path + data_folder + "\\extrema.txt", mode = 'w') as file_object:
     print(df_extrema, file = file_object)
