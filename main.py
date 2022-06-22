@@ -23,10 +23,11 @@ def user_in(msg):
             return result
 
 ### Details for saving figures/files of interest, change naming style as preferred ###
-my_path = os.path.dirname(__file__) # path where script is saved
+my_path = os.path.dirname(__file__) # path where this script is run from
 data_folder = "\\test_data"
 ts_file = "\\ts.png"
-ct_file = "\\ct.png"
+ct_file_f = "\\ct_f.png"
+ct_file_r = "\\ct_r.png"
 fig_folder = "\\figures"
 
 ### Read .log file, handling invalid user input ###
@@ -45,7 +46,7 @@ while True:
 # At this point, lines[] contains each line of the text file in string format as a list
 
 ### Parse file and collect force, current and voltage data points into lists ###
-# Try to make modular eventually, as in being able to parse any file loosely formatted the same way 
+# Try to make more flexible eventually, as in being able to parse any file loosely formatted the same way 
 force = []; current = []; voltage = []; time = []; time2 = []
 line = 0
 current_line = lines[line].split()
@@ -81,7 +82,7 @@ ref_time = time[0]
 for t in range(len(time)):
     time[t] = time[t] - ref_time
 
-### Create dataframe with Pandas ###
+### Create dataframe with Pandas, indexing by time in seconds ###
 df_data = pd.DataFrame({"Force": force, "Current": current, "Voltage": voltage, "Power": power}, index = time)
 
 ### Graph raw time series plots with Matplotlib ###
@@ -99,7 +100,7 @@ axt[1].set_ylabel("Voltage (raw) [A]")
 axt[2].plot(df_data.index, df_data["Force"], '.') # Force/thrust vs. time scatter
 axt[2].set_ylabel("Force (raw) [kgf]")
 
-# For power, I need to figure out how to plot max power for reverse direction (this will do for now)
+# For power, I need to figure out how to compute max power for reverse direction (this will do for now)
 pmin = power[0]
 for i in range(len(power)):
     if(abs(power[i]) > abs(pmin) and voltage[i] < 0 and current[i] < 0): pmin = power[i]
@@ -110,7 +111,6 @@ troughs = np.array([abs(np.min(force)), abs(np.amin(current)), abs(np.amin(volta
 df_extrema = pd.DataFrame({"Max forward (raw)": peaks, "Max reverse (raw)": troughs}, index = ["Force", "Current", "Voltage", "Power"])
 
 ### Graph thrust vs. current using Matplotlib ###
-# Eventually use zero cross method to "overlay periods" by taking averages (assume phase shift is zero)
 
 # Seperate forward/reverse direction current, thrust and voltage values, use voltage plot as the zero cross reference
 num_periods = 5
@@ -118,6 +118,7 @@ current_f = []; force_f = []; voltage_f = []
 current_r = []; force_r = []; voltage_r = []
 i = j = 0
 
+# Redo such that loops are less dependent on sign -> use time values and properties of sine wave
 while(voltage[i] < 0 and i < len(voltage) - 1): i += 1 # get to zero cross of voltage graph
 for j in range(num_periods):
     while(voltage[i] >= 0 and i < len(voltage) - 1): # get forward current, force and voltage values
@@ -156,7 +157,7 @@ axc_f.set_ylabel("Thrust [kgf]")
 axc_f.set_xlabel("Current [A]")
 
 plt.scatter(current_f, force_f)
-plt.plot(current_f, mymodel_f) # overlays trendline on Thrust vs. current scatter plot 
+plt.plot(current_f, mymodel_f) 
 
 # Graph reverse direction thrust vs. current
 figc_r = plt.figure()
@@ -175,14 +176,14 @@ plt.plot(current_r, mymodel_r)
 if not os.path.isdir(my_path + data_folder + fig_folder):
     os.makedirs(my_path + data_folder + fig_folder)
 figt.savefig(my_path + data_folder + fig_folder + ts_file)
-figc_f.savefig(my_path + data_folder + fig_folder + ct_file)
-
+figc_f.savefig(my_path + data_folder + fig_folder + ct_file_f)
+figc_r.savefig(my_path + data_folder + fig_folder + ct_file_r)
 with open(my_path + data_folder + "\\extrema.txt", mode = 'w') as file_object:
     print(df_extrema, file = file_object)
 
 ### Pre-process data (clean up rails/outliers, re-sample using pandas) ###
 
 ### Display all plots, data of interest -> last action in program ###
-plt.show() 
+#plt.show() 
 
 
