@@ -11,4 +11,4 @@ m [lbf/A] -0.011879 -0.035894
 b         -0.066975 -0.045694
 r^2        0.015194  0.132273
 
-Thrust vs. current deadband:  0.021280600352193382
+Thrust vs. current deadband magnitude:  0.021280600352193382
