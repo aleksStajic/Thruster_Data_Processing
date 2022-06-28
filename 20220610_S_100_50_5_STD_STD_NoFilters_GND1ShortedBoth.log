@@ -1,7 +1,9 @@
 #Channel	AI_CH0	AI_CH1	AI_CH2	AI_CH3
 #Sensor 	Force	Current	N/C	Voltage	Lever_Arm_Ratio
-#Scaling_Factor	500.0	4.877999782562256	1.0	23.533100128173828	0.800000011920929
+#Scaling_Factor	885.739990234375	4.877999782562256	1.0	23.533000946044922	0.6669999957084656
 #Sample_Rate	Every 0.05s
+#Test_parameter_type	Frequency [Hz]	Start delay [s]	Periods	Phase [rad]	Amplitude [0-1]
+#Test_parameters	0.019999999552965164	5.0	2.0	0.0	1.0
 10-Jun-2022 14:47:36.007	<begin logging>
 10-Jun-2022 14:47:36.033	0.0	0.0	0.0	0.0
 10-Jun-2022 14:47:36.057	0.0	-0.001220703125	0.0	-0.0048828125

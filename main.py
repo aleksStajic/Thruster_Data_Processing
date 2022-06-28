@@ -41,7 +41,7 @@ ct_file_r = "\\ct_r.png"
 ts_overlapped_file = "\\ts_overlayed.png"
 voltage_fit_file = "\\vfitted_vs_vraw.png"
 fig_folder = "\\figures"
-show_line = True # change to True if you want to show maximums and minimums on the overlayed chart 
+show_line = False # change to True if you want to show maximums and minimums on the overlayed chart 
 
 ### Read .log file, handling invalid user input ###
 data_file = user_in("Enter data file path: ")
@@ -62,23 +62,36 @@ force = []; current = []; voltage = []; time = []; time2 = []; force_avg = []
 force_zero = 0
 line = 0
 current_line = lines[line].split()
+start_test = False
 # Once the delay time gets added to the text file I can make the force averaging/background value skipping more efficient
 while "<end" not in current_line and line < len(lines):
+    if start_test: # Get data points for force, current voltage, ignore values recorded during test delay (5 seconds)
+        h,m,s = current_line[1].split(':') # get seconds value corresponding to <timestamp> - 00:00:00.000
+        if (float(h) * 3600 + float(m) * 60 + float(s)) - time_zero > test_delay:
+            force_zero = np.mean(np.array(force_avg))
+            time.append(float(h) * 3600 + float(m) * 60 + float(s)) # time is a list containing floating point second values 
+            force.append(float(current_line[2]) - force_zero) # compute all force values wrt the pre-loaded value
+            current.append(float(current_line[3]))
+            voltage.append(float(current_line[5]))
+        else: # During test delay period, get an average for the initial pre-loaded force value
+            force_avg.append(float(current_line[2]))
     if lines[line].startswith("#Scaling_Factor"): # Get scaling factors
         sf = lines[line].split()[1:6]
         sf_force = float(sf[0])
         sf_current = float(sf[1])
         sf_voltage = float(sf[3])
         lever_arm_ratio = float(sf[4]) 
-    elif line >= 18: # Get data points for force, current voltage, ignore values recorded during test delay (5 seconds)
-        h,m,s = current_line[1].split(':') # get seconds value corresponding to <timestamp> - 00:00:00.000
-        time.append(float(h) * 3600 + float(m) * 60 + float(s)) # time is a list containing floating point second values 
-        force.append(float(current_line[2]) - force_zero) # compute all force values wrt the pre-loaded value
-        current.append(float(current_line[3]))
-        voltage.append(float(current_line[5]))
-    elif 5 < line < 18: # During test delay period, get an average for the initial pre-loaded force value
-        force_avg.append(float(current_line[2]))
-        force_zero = np.mean(np.array(force_avg))
+    elif lines[line].startswith("#Test_parameters"): # Get sine test parameters
+        test_params = current_line
+        test_freq = float(test_params[1])
+        test_delay = float(test_params[2])
+        test_periods = float(test_params[3]) 
+        test_phase = float(test_params[4])
+        test_amp = float(test_params[5])
+    elif "<begin" in current_line: # Start collecting data
+        h,m,s = current_line[1].split(':')
+        time_zero = float(h) * 3600 + float(m) * 60 + float(s)
+        start_test = True
     line += 1
     current_line = lines[line].split()
 
@@ -111,7 +124,7 @@ axt[2].plot(df_data.index, df_data["Force"], '.') # Force/thrust vs. time scatte
 axt[2].set_ylabel("Force (raw) [kgf]")
 
 ### Curve fitting, syncing and period overlappying for time series, using voltage data as the reference "clock" ###
-popt, pcov = curve_fit(sin_func, time, voltage, p0=(np.max(voltage), 1.0 / 55.0)) # approximate voltage data to a sine curve
+popt, pcov = curve_fit(sin_func, time, voltage, p0=(np.max(voltage), 1/55)) # approximate voltage data to a sine curve
 fitted_amp = popt[0]
 fitted_freq = popt[1]
 fitted_period = 1 / fitted_freq
@@ -174,16 +187,16 @@ df_extrema = pd.DataFrame({"Max forward": peaks, "Max reverse": troughs}, index 
 
 # Graph peak values on plot of overlapped data
 if show_line:
-    v_max = np.full_like(np.arange(int(len(v_avg) / 2), dtype = float), peaks[2])
-    v_min = np.full_like(np.arange(int(len(v_avg) / 2), dtype = float), troughs[2])
-    i_max = np.full_like(np.arange(int(len(i_avg) / 2), dtype = float), peaks[1])
-    i_min = np.full_like(np.arange(int(len(i_avg) / 2), dtype = float), troughs[1])
-    T_max = np.full_like(np.arange(int(len(T_avg) / 2), dtype = float), peaks[0])
-    T_min = np.full_like(np.arange(int(len(T_avg) / 2), dtype = float), troughs[0])
+    v_max = np.full_like(np.arange(int(len(v_avg)), dtype = float), peaks[2])
+    v_min = np.full_like(np.arange(int(len(v_avg)), dtype = float), troughs[2])
+    i_max = np.full_like(np.arange(int(len(i_avg)), dtype = float), peaks[1])
+    i_min = np.full_like(np.arange(int(len(i_avg)), dtype = float), troughs[1])
+    T_max = np.full_like(np.arange(int(len(T_avg)), dtype = float), peaks[0])
+    T_min = np.full_like(np.arange(int(len(T_avg)), dtype = float), troughs[0])
 
-    ax_sync.plot(t[0:int(len(t) / 2)], v_max, '.', label = "Voltage maximum"); ax_sync.plot(t[int(len(t) / 2):int(len(t))], -v_min, '.', label = "Voltage minimum")
-    ax_sync.plot(t[0:int(len(t) / 2)], i_max, '.', label = "Current maximum"); ax_sync.plot(t[int(len(t) / 2):int(len(t))], -i_min, '.', label = "Current minimum")
-    ax_sync.plot(t[0:int(len(t) / 2)], T_max, '.', label = "Thrust maximum"); ax_sync.plot(t[int(len(t) / 2):int(len(t))], -T_min, '.', label = "Thrust minimum")
+    ax_sync.plot(t[0:int(len(t) / 2)], v_max[0:int(len(t) / 2)], '.', label = "Voltage maximum"); ax_sync.plot(t[int(len(t) / 2):int(len(t))], -v_min[int(len(t) / 2):int(len(t))], '.', label = "Voltage minimum")
+    ax_sync.plot(t[0:int(len(t) / 2)], i_max[0:int(len(t) / 2)], '.', label = "Current maximum"); ax_sync.plot(t[int(len(t) / 2):int(len(t))], -i_min[int(len(t) / 2):int(len(t))], '.', label = "Current minimum")
+    ax_sync.plot(t[0:int(len(t) / 2)], T_max[0:int(len(t) / 2)], '.', label = "Thrust maximum"); ax_sync.plot(t[int(len(t) / 2):int(len(t))], -T_min[int(len(t) / 2):int(len(t))], '.', label = "Thrust minimum")
 
     # Plot vertical line at the time intersection of max values for voltage and current
     ax_sync.plot(np.full_like(np.arange(int(len(v_avg)), dtype = float), t[np.argmax(v_avg)]), v_avg, '.')
@@ -217,7 +230,7 @@ slope, intercept, r, p, std_err = stats.linregress(current_f, thrust_f)
 m_f = slope; b_f = intercept; r_f = r
 
 def ct_line(current):
-  return slope * current + intercept
+    return slope * current + intercept
 
 mymodel_f = list(map(ct_line, current_f))
 
@@ -275,5 +288,4 @@ with open(my_path + data_folder + "\\stats.txt", mode = 'w') as file_object:
 
 ### Display all plots, data of interest -> last action in program, since plt.show() stalls execution ###
 #plt.show() 
-
 
