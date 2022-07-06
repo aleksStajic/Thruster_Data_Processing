@@ -1,0 +1,14 @@
+|Peak Values|
+             Max forward  Max reverse
+Force [lbf]    13.601880     6.591089
+Current [A]     9.545207     8.866384
+Voltage [V]    47.263941    47.263815
+Power [W]     446.372512   417.071539
+
+|Thrust vs. current stats|
+            Forward   Reverse
+m [lbf/A]  1.363607  0.746171
+b         -0.548527  0.783386
+r^2        0.965859  0.882486
+
+Thrust vs. current deadband magnitude:  1.4521362865238177

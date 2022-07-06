@@ -38,7 +38,11 @@ data_folder = "\\test_data"
 ts_file = "\\ts.png"
 ct_file_f = "\\ct_f.png"
 ct_file_r = "\\ct_r.png"
+ct_file_raw = "\\ct_raw.png"
 ts_overlapped_file = "\\ts_overlayed.png"
+tsv_file = "\\tsv.png"
+tsi_file = "\\tsi.png"
+tsF_file = "\\tsF.png"
 voltage_fit_file = "\\vfitted_vs_vraw.png"
 fig_folder = "\\figures"
 show_line = False # change to True if you want to show maximums and minimums on the overlayed chart 
@@ -68,13 +72,13 @@ while "<end" not in current_line and line < len(lines):
     if start_test: # Get data points for force, current voltage, ignore values recorded during test delay (5 seconds)
         h,m,s = current_line[1].split(':') # get seconds value corresponding to <timestamp> - 00:00:00.000
         if (float(h) * 3600 + float(m) * 60 + float(s)) - time_zero > test_delay:
-            force_zero = np.mean(np.array(force_avg))
             time.append(float(h) * 3600 + float(m) * 60 + float(s)) # time is a list containing floating point second values 
             force.append(float(current_line[2]) - force_zero) # compute all force values wrt the pre-loaded value
             current.append(float(current_line[3]))
             voltage.append(float(current_line[5]))
-        else: # During test delay period, get an average for the initial pre-loaded force value
+        else: # During test delay period, get an average for the initial pre-loaded values
             force_avg.append(float(current_line[2]))
+            force_zero = np.mean(np.array(force_avg)) 
     if lines[line].startswith("#Scaling_Factor"): # Get scaling factors
         sf = lines[line].split()[1:6]
         sf_force = float(sf[0])
@@ -121,22 +125,62 @@ axt[1].plot(df_data.index, df_data["Voltage"], '.') # Voltage vs. time scatter
 axt[1].set_ylabel("Voltage (raw) [A]")
 
 axt[2].plot(df_data.index, df_data["Force"], '.') # Force/thrust vs. time scatter
-axt[2].set_ylabel("Force (raw) [kgf]")
+axt[2].set_ylabel("Force (raw) [lbf]")
+
+### Seperate time series ###
+figts1, axts1 = plt.subplots(1)
+figts1.suptitle("Current vs. time (raw)", fontsize = 16)
+axts1.plot(df_data.index, df_data["Current"], '.') # Current vs. time scatter
+axts1.set_ylabel("Current (raw) [A]")
+axts1.set_xlabel("Time [s]")
+
+figts2, axts2 = plt.subplots(1)
+figts2.suptitle("Voltage vs time (raw)", fontsize = 16)
+axts2.plot(df_data.index, df_data["Voltage"], '.') # Current vs. time scatter
+axts2.set_ylabel("Voltage (raw) [V]")
+axts2.set_xlabel("Time [s]")
+
+figts3, axts3 = plt.subplots(1)
+figts3.suptitle("Force vs. time (raw)", fontsize = 16)
+axts3.plot(df_data.index, df_data["Force"], '.') # Current vs. time scatter
+axts3.set_ylabel("Force (raw) [lbf]")
+axts3.set_xlabel("Time [s]")
+
+### Remove outliers from thrust data ### -> Do this before curve fitting, i.e eliminate all forc outlier
+### points before curve fitting and before "syncing"
+i_filtered = np.copy(current) # create new array to hold current values (specifically to graph T vs. I)
+v_filtered = np.copy(voltage)
+f_filtered = np.copy(force)
+T_delta_max = 1 # define a threshold values for the maximum delta between two points
+count = 0
+for x in range(1, len(f_filtered)):
+    if(abs(f_filtered[x] - f_filtered[x-1]) > T_delta_max):
+        f_filtered[x] = np.nan
+        i_filtered[x] = np.nan
+        v_filtered[x] = np.nan
+        time[x] = np.nan # completely get rid of all time values corresponding to outliers
+        count += 1
+print(count)
+
+f_filtered = f_filtered[~np.isnan(f_filtered)]
+i_filtered = i_filtered[~np.isnan(i_filtered)]
+v_filtered = v_filtered[~np.isnan(v_filtered)]
+time = time[~np.isnan(time)]
 
 ### Curve fitting, syncing and period overlappying for time series, using voltage data as the reference "clock" ###
-popt, pcov = curve_fit(sin_func, time, voltage, p0=(np.max(voltage), 1/55)) # approximate voltage data to a sine curve
+popt, pcov = curve_fit(sin_func, time, v_filtered, p0=(np.max(v_filtered), 1/55)) # approximate voltage data to a sine curve
 fitted_amp = popt[0]
 fitted_freq = popt[1]
 fitted_period = 1 / fitted_freq
 fitted_voltage = sin_func(time, fitted_amp, fitted_freq) # get approximated voltage sine curve
-syncd_data = np.vstack((time, fitted_voltage, force, current)).T # "sync" all plots in a 2D matrix
+syncd_data = np.vstack((time, fitted_voltage, f_filtered, i_filtered)).T # "sync" all plots in a 2D matrix
 
 # Plot fitted voltage curve and raw voltage curve overlayed to assess accuracy of curve fit
 fig_fitted, ax_fitted = plt.subplots(1)
 fig_fitted.suptitle("Voltage vs time (Curve fit and raw data)", fontsize = 16)
 ax_fitted.plot(time, fitted_voltage, '.', label = "Fitted voltage curve")
-ax_fitted.plot(time, voltage, '.', label = "Raw data")
-ax_fitted.set_ylim(np.amin(voltage) - 20, np.amax(voltage) + 20)
+ax_fitted.plot(time, v_filtered, '.', label = "Raw data")
+ax_fitted.set_ylim(np.amin(v_filtered) - 20, np.amax(v_filtered) + 20)
 ax_fitted.set_xlabel("Time [s]")
 ax_fitted.set_ylabel("Voltage [V]")
 plt.legend(loc = "upper right")
@@ -162,22 +206,22 @@ df_sorted = pd.DataFrame(sorted_data, columns = ["time", "voltage", "force", "cu
 # Extract values in DataFrame into individual Numpy arrays for convenience -> these arrays hold the "sorted" data points over 5 periods
 v_avg = np.array(df_sorted["voltage"]) # voltage [V]
 i_avg = np.array(df_sorted["current"]) # current [A]
-T_avg = np.array(df_sorted["force"]) # thrust [kgf]
+T_avg = np.array(df_sorted["force"]) # thrust [lbf]
 t = np.array(df_sorted["time"]) # time [s]
 p_avg = np.multiply(v_avg, i_avg) # power [W]
 
 #plot all the synced and overlapped data
 fig_overlapped, ax_sync = plt.subplots(1)
-fig_overlapped.suptitle("Current, force vs. time synced to LSE voltage vs. time fit with periods overlapped", fontsize = 16)
-ax_sync.plot(t, v_avg, '.', label = "Voltage [V]") # voltage
+fig_overlapped.suptitle("Current, force vs. time synced to LSE voltage fit with periods overlapped", fontsize = 16)
+#ax_sync.plot(t, v_avg, '.', label = "Voltage [V]") # voltage
 ax_sync.plot(t, i_avg, '.', label = "Current [A]") # current
-ax_sync.plot(t, T_avg, '.', label = "Thrust [kgf]") # force
+ax_sync.plot(t, T_avg, '.', label = "Thrust [lbf]") # force
 ax_sync.set_xlabel("Time [s]")
 
 ### Determine and store peak values from synced and overlapped data ###
 # Determine max power for reverse direction
 pmin = p_avg[0]
-for i in range(len(power)): 
+for i in range(len(p_avg)): 
     if(abs(p_avg[i]) > abs(pmin) and v_avg[i] < 0 and i_avg[i] < 0): pmin = p_avg[i]
 
 # Store peak values from synced and overlapped data into Pandas dataframe 
@@ -210,15 +254,29 @@ current_f = []; thrust_f = [];
 current_r = []; thrust_r = []; 
 
 # Use fitted voltage curve and zero cross method to determine forward/reverse values from the overlapped, synced data
+# Ignore and delete data points that are physically incompatible with our setup, including:
+#   1. -ve current and +ve thrust and vice versa
+#   2. +ve current and -ve thrust and vice versa
 while(v_avg[i] < 0): i += 1 # get to zero cross of voltage graph
 while(v_avg[i] >= 0): # forward 
-    current_f.append(i_avg[i])
-    thrust_f.append(T_avg[i])
+    if i_avg[i] >= 0 and T_avg[i] >= 0:
+        current_f.append(i_avg[i])
+        thrust_f.append(T_avg[i])
+    else:
+        i_avg[i] = np.nan
+        T_avg[i] = np.nan
     i += 1
-while(i < len(voltage) - 1): # reverse
-    current_r.append(i_avg[i])
-    thrust_r.append(T_avg[i])
+while(i < len(T_avg)): # reverse (remaining thrust values in T_avg)
+    if i_avg[i] <= 0 and T_avg[i] <= 0:
+        current_r.append(i_avg[i])
+        thrust_r.append(T_avg[i])
+    else:
+        i_avg[i] = np.nan
+        T_avg[i] = np.nan
     i += 1
+
+i_avg = i_avg[~np.isnan(i_avg)]
+T_avg = T_avg[~np.isnan(T_avg)]
 
 # Convert lists to NumPy arrays
 current_f = np.array(current_f); thrust_f = np.array(thrust_f)
@@ -240,8 +298,8 @@ m_r = slope; b_r = intercept; r_r = r
 
 mymodel_r = list(map(ct_line, current_r))
 
-### Determine length of dead band for thrust vs. current ###
-deadband = abs(b_f - b_r)
+### Determine length of dead band for thrust vs. current (difference of x-intercepts) ###
+deadband = abs(-b_f/m_f + b_r/m_r)
 
 ### Save slope, intercept and r^2 data into dataframe ###
 ct_stats_f = np.array([m_f, b_f, r_f**2])
@@ -253,7 +311,7 @@ figc_f = plt.figure()
 figc_f.suptitle("Thrust vs. current (forward)", fontsize = 16)
 axc_f = plt.axes()
 
-axc_f.set_ylabel("Thrust [kgf]")
+axc_f.set_ylabel("Thrust [lbf]")
 axc_f.set_xlabel("Current [A]")
 
 plt.scatter(current_f, thrust_f)
@@ -264,11 +322,23 @@ figc_r = plt.figure()
 figc_r.suptitle("Thrust vs. current (reverse)", fontsize = 16)
 axc_r = plt.axes()
 
-axc_r.set_ylabel("Thrust [kgf]")
+axc_r.set_ylabel("Thrust [lbf]")
 axc_r.set_xlabel("Current [A]")
 
 plt.scatter(current_r, thrust_r)
 plt.plot(current_r, mymodel_r, color = "orange")
+
+# Graph raw thrust vs. current
+figc_raw = plt.figure()
+figc_raw.suptitle("Thrust vs. current", fontsize = 16)
+axc_raw = plt.axes()
+
+axc_raw.set_ylabel("Thrust [lbf]")
+axc_raw.set_xlabel("Current [A]")
+
+plt.scatter(i_avg, T_avg)
+axc_raw.plot(current_f, mymodel_f, color = "orange") # Overlay forward/reverse trendlines on to raw T/I plot
+axc_raw.plot(current_r, mymodel_r, color = "orange")
 
 ### Save figures and files ###
 if not os.path.isdir(my_path + data_folder + fig_folder):
@@ -276,8 +346,12 @@ if not os.path.isdir(my_path + data_folder + fig_folder):
 figt.savefig(my_path + data_folder + fig_folder + ts_file)
 figc_f.savefig(my_path + data_folder + fig_folder + ct_file_f)
 figc_r.savefig(my_path + data_folder + fig_folder + ct_file_r)
+figc_raw.savefig(my_path + data_folder + fig_folder + ct_file_raw)
 fig_overlapped.savefig(my_path + data_folder + fig_folder + ts_overlapped_file)
 fig_fitted.savefig(my_path + data_folder + fig_folder + voltage_fit_file)
+figts2.savefig(my_path + data_folder + fig_folder + tsv_file)
+figts1.savefig(my_path + data_folder + fig_folder + tsi_file)
+figts3.savefig(my_path + data_folder + fig_folder + tsF_file)
 
 with open(my_path + data_folder + "\\stats.txt", mode = 'w') as file_object:
     print("|Peak Values|", file = file_object)
