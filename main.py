@@ -1,5 +1,4 @@
 # Eventually reflect reverse direction of thrust vs. current such that thrust is always positive
-# Also have a raw thrust vs. current graph potentially
 
 ### Import libraries ###
 import os
@@ -67,7 +66,7 @@ force_zero = 0
 line = 0
 current_line = lines[line].split()
 start_test = False
-# Once the delay time gets added to the text file I can make the force averaging/background value skipping more efficient
+
 while "<end" not in current_line and line < len(lines):
     if start_test: # Get data points for force, current voltage, ignore values recorded during test delay (5 seconds)
         h,m,s = current_line[1].split(':') # get seconds value corresponding to <timestamp> - 00:00:00.000
@@ -146,41 +145,20 @@ axts3.plot(df_data.index, df_data["Force"], '.') # Current vs. time scatter
 axts3.set_ylabel("Force (raw) [lbf]")
 axts3.set_xlabel("Time [s]")
 
-### Remove outliers from thrust data ### -> Do this before curve fitting, i.e eliminate all forc outlier
-### points before curve fitting and before "syncing"
-i_filtered = np.copy(current) # create new array to hold current values (specifically to graph T vs. I)
-v_filtered = np.copy(voltage)
-f_filtered = np.copy(force)
-T_delta_max = 1 # define a threshold values for the maximum delta between two points
-count = 0
-for x in range(1, len(f_filtered)):
-    if(abs(f_filtered[x] - f_filtered[x-1]) > T_delta_max):
-        f_filtered[x] = np.nan
-        i_filtered[x] = np.nan
-        v_filtered[x] = np.nan
-        time[x] = np.nan # completely get rid of all time values corresponding to outliers
-        count += 1
-print(count)
-
-f_filtered = f_filtered[~np.isnan(f_filtered)]
-i_filtered = i_filtered[~np.isnan(i_filtered)]
-v_filtered = v_filtered[~np.isnan(v_filtered)]
-time = time[~np.isnan(time)]
-
 ### Curve fitting, syncing and period overlappying for time series, using voltage data as the reference "clock" ###
-popt, pcov = curve_fit(sin_func, time, v_filtered, p0=(np.max(v_filtered), 1/55)) # approximate voltage data to a sine curve
+popt, pcov = curve_fit(sin_func, time, voltage, p0=(np.max(voltage), test_freq)) # approximate voltage data to a sine curve
 fitted_amp = popt[0]
 fitted_freq = popt[1]
 fitted_period = 1 / fitted_freq
 fitted_voltage = sin_func(time, fitted_amp, fitted_freq) # get approximated voltage sine curve
-syncd_data = np.vstack((time, fitted_voltage, f_filtered, i_filtered)).T # "sync" all plots in a 2D matrix
+syncd_data = np.vstack((time, fitted_voltage, force, current)).T # "sync" all plots in a 2D matrix
 
 # Plot fitted voltage curve and raw voltage curve overlayed to assess accuracy of curve fit
 fig_fitted, ax_fitted = plt.subplots(1)
 fig_fitted.suptitle("Voltage vs time (Curve fit and raw data)", fontsize = 16)
 ax_fitted.plot(time, fitted_voltage, '.', label = "Fitted voltage curve")
-ax_fitted.plot(time, v_filtered, '.', label = "Raw data")
-ax_fitted.set_ylim(np.amin(v_filtered) - 20, np.amax(v_filtered) + 20)
+ax_fitted.plot(time, voltage, '.', label = "Raw data")
+ax_fitted.set_ylim(np.amin(voltage) - 20, np.amax(voltage) + 20)
 ax_fitted.set_xlabel("Time [s]")
 ax_fitted.set_ylabel("Voltage [V]")
 plt.legend(loc = "upper right")
@@ -224,9 +202,23 @@ pmin = p_avg[0]
 for i in range(len(p_avg)): 
     if(abs(p_avg[i]) > abs(pmin) and v_avg[i] < 0 and i_avg[i] < 0): pmin = p_avg[i]
 
+# Determine peak values for force using 1/4 period cluster averaging
+quarter_period = int(len(t) * 0.25) # make in units of "indices" for array navigation
+cluster_width = 5
+peak_T_forward = []
+peak_T_reverse = []
+
+for i in range(quarter_period - cluster_width, quarter_period + cluster_width):
+    peak_T_forward.append(T_avg[i])
+for i in range(quarter_period * 3 - cluster_width, quarter_period * 3 + cluster_width):
+    peak_T_reverse.append(T_avg[i])
+
+peak_T_forward = np.array(peak_T_forward)
+peak_T_reverse = np.array(peak_T_reverse)
+
 # Store peak values from synced and overlapped data into Pandas dataframe 
-peaks = np.array([np.amax(T_avg), np.amax(i_avg), np.amax(v_avg), np.amax(p_avg)])
-troughs = np.array([abs(np.amin(T_avg)), abs(np.amin(i_avg)), abs(np.amin(v_avg)), pmin])
+peaks = np.array([np.mean(peak_T_forward), np.amax(i_avg), np.amax(v_avg), np.amax(p_avg)])
+troughs = np.array([abs(np.mean(peak_T_reverse)), abs(np.amin(i_avg)), abs(np.amin(v_avg)), pmin])
 df_extrema = pd.DataFrame({"Max forward": peaks, "Max reverse": troughs}, index = ["Force [lbf]", "Current [A]", "Voltage [V]", "Power [W]"])
 
 # Graph peak values on plot of overlapped data
@@ -238,12 +230,12 @@ if show_line:
     T_max = np.full_like(np.arange(int(len(T_avg)), dtype = float), peaks[0])
     T_min = np.full_like(np.arange(int(len(T_avg)), dtype = float), troughs[0])
 
-    ax_sync.plot(t[0:int(len(t) / 2)], v_max[0:int(len(t) / 2)], '.', label = "Voltage maximum"); ax_sync.plot(t[int(len(t) / 2):int(len(t))], -v_min[int(len(t) / 2):int(len(t))], '.', label = "Voltage minimum")
+    #ax_sync.plot(t[0:int(len(t) / 2)], v_max[0:int(len(t) / 2)], '.', label = "Voltage maximum"); ax_sync.plot(t[int(len(t) / 2):int(len(t))], -v_min[int(len(t) / 2):int(len(t))], '.', label = "Voltage minimum")
     ax_sync.plot(t[0:int(len(t) / 2)], i_max[0:int(len(t) / 2)], '.', label = "Current maximum"); ax_sync.plot(t[int(len(t) / 2):int(len(t))], -i_min[int(len(t) / 2):int(len(t))], '.', label = "Current minimum")
     ax_sync.plot(t[0:int(len(t) / 2)], T_max[0:int(len(t) / 2)], '.', label = "Thrust maximum"); ax_sync.plot(t[int(len(t) / 2):int(len(t))], -T_min[int(len(t) / 2):int(len(t))], '.', label = "Thrust minimum")
 
     # Plot vertical line at the time intersection of max values for voltage and current
-    ax_sync.plot(np.full_like(np.arange(int(len(v_avg)), dtype = float), t[np.argmax(v_avg)]), v_avg, '.')
+    #ax_sync.plot(np.full_like(np.arange(int(len(v_avg)), dtype = float), t[np.argmax(v_avg)]), v_avg, '.')
     ax_sync.plot(np.full_like(np.arange(int(len(i_avg)), dtype = float), t[np.argmax(i_avg)]), i_avg, '.')
 plt.legend(loc = "upper right")
 
@@ -257,6 +249,7 @@ current_r = []; thrust_r = [];
 # Ignore and delete data points that are physically incompatible with our setup, including:
 #   1. -ve current and +ve thrust and vice versa
 #   2. +ve current and -ve thrust and vice versa
+# Also check again for data points that are "outliers" based on T_delta_max, and delete them if so
 while(v_avg[i] < 0): i += 1 # get to zero cross of voltage graph
 while(v_avg[i] >= 0): # forward 
     if i_avg[i] >= 0 and T_avg[i] >= 0:
