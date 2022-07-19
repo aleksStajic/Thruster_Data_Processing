@@ -188,16 +188,16 @@ T_avg = np.array(df_sorted["force"]) # thrust [lbf]
 t = np.array(df_sorted["time"]) # time [s]
 p_avg = np.multiply(v_avg, i_avg) # power [W]
 
-#plot all the synced and overlapped data
+# plot all the synced and overlapped data
 fig_overlapped, ax_sync = plt.subplots(1)
 fig_overlapped.suptitle("Current, force vs. time synced to LSE voltage fit with periods overlapped", fontsize = 16)
-#ax_sync.plot(t, v_avg, '.', label = "Voltage [V]") # voltage
+# ax_sync.plot(t, v_avg, '.', label = "Voltage [V]") # voltage
 ax_sync.plot(t, i_avg, '.', label = "Current [A]") # current
 ax_sync.plot(t, T_avg, '.', label = "Thrust [lbf]") # force
 ax_sync.set_xlabel("Time [s]")
 
 ### Determine and store peak values from synced and overlapped data ###
-# Determine max power for reverse direction
+# Determine max power for reverse direction (pmin occurs only when v and i are < 0)
 pmin = p_avg[0]
 for i in range(len(p_avg)): 
     if(abs(p_avg[i]) > abs(pmin) and v_avg[i] < 0 and i_avg[i] < 0): pmin = p_avg[i]
@@ -221,7 +221,7 @@ peaks = np.array([np.mean(peak_T_forward), np.amax(i_avg), np.amax(v_avg), np.am
 troughs = np.array([abs(np.mean(peak_T_reverse)), abs(np.amin(i_avg)), abs(np.amin(v_avg)), pmin])
 df_extrema = pd.DataFrame({"Max forward": peaks, "Max reverse": troughs}, index = ["Force [lbf]", "Current [A]", "Voltage [V]", "Power [W]"])
 
-# Graph peak values on plot of overlapped data
+# Graph peak values on plot of overlapped data if desired
 if show_line:
     v_max = np.full_like(np.arange(int(len(v_avg)), dtype = float), peaks[2])
     v_min = np.full_like(np.arange(int(len(v_avg)), dtype = float), troughs[2])
@@ -249,7 +249,7 @@ current_r = []; thrust_r = [];
 # Ignore and delete data points that are physically incompatible with our setup, including:
 #   1. -ve current and +ve thrust and vice versa
 #   2. +ve current and -ve thrust and vice versa
-# Also check again for data points that are "outliers" based on T_delta_max, and delete them if so
+
 while(v_avg[i] < 0): i += 1 # get to zero cross of voltage graph
 while(v_avg[i] >= 0): # forward 
     if i_avg[i] >= 0 and T_avg[i] >= 0:
@@ -292,7 +292,8 @@ m_r = slope; b_r = intercept; r_r = r
 mymodel_r = list(map(ct_line, current_r))
 
 ### Determine length of dead band for thrust vs. current (difference of x-intercepts) ###
-deadband = abs(-b_f/m_f + b_r/m_r)
+if m_f != 0 and m_r != 0: deadband = abs(-b_f/m_f + b_r/m_r)
+else: deadband = np.nan
 
 ### Save slope, intercept and r^2 data into dataframe ###
 ct_stats_f = np.array([m_f, b_f, r_f**2])
