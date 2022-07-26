@@ -20,6 +20,8 @@ def user_in(msg):
     while True:
         try:
             result = input(msg)
+            if result[0] == '"' and result[len(result)-1] == '"':
+                result = result[1:len(result) - 1]
         except:
             continue
         else:
