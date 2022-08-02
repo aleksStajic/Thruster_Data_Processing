@@ -174,7 +174,7 @@ ind_p.append(0) # graph starts from 0 since phase shift is 0, so first period st
 for i in range(rows - 1):
     if(syncd_data[i,1] < 0 and syncd_data[i+1,1] >=0): # if we hit a zero cross going from -ve to +ve, this is the end of one period
         ind_p.append(i+1)
-ind_p = np.array(ind_p) # convert to numpy array for consistency
+ind_p = np.array(ind_p) # convert to NumPy array for consistency
 num_periods = len(ind_p)
 
 # Using ind_p, shift all time data in syncd_data such that each period "chunk" starts from 0 
@@ -281,19 +281,24 @@ current_r = np.array(current_r); thrust_r = np.array(thrust_r)
 
 ### Use Linear Regression to determine thrust vs. current slopes (forward and reverse) ###
 # Determine forward direction thrust vs. current trendline
-slope, intercept, r, p, std_err = stats.linregress(current_f, thrust_f)
-m_f = slope; b_f = intercept; r_f = r
+if(len(current_f) != 0):
+    slope, intercept, r, p, std_err = stats.linregress(current_f, thrust_f)
+    m_f = slope; b_f = intercept; r_f = r
 
-def ct_line(current):
-    return slope * current + intercept
+    def ct_line(current):
+        return slope * current + intercept
 
-mymodel_f = list(map(ct_line, current_f))
-
+    mymodel_f = list(map(ct_line, current_f))
+else:
+    m_f = b_f = r_f = np.nan
 # Determine reverse direction thrust vs. current trendline
-slope, intercept, r, p, std_err = stats.linregress(current_r, thrust_r)
-m_r = slope; b_r = intercept; r_r = r
+if(len(current_r) != 0):
+    slope, intercept, r, p, std_err = stats.linregress(current_r, thrust_r)
+    m_r = slope; b_r = intercept; r_r = r
 
-mymodel_r = list(map(ct_line, current_r))
+    mymodel_r = list(map(ct_line, current_r))
+else:
+    m_r = b_r = r_r = np.nan
 
 ### Determine length of dead band for thrust vs. current (difference of x-intercepts) ###
 if m_f != 0 and m_r != 0: deadband = abs(-b_f/m_f + b_r/m_r)
@@ -305,26 +310,28 @@ ct_stats_r = np.array([m_r, b_r, r_r**2])
 df_stats = pd.DataFrame({"Forward": ct_stats_f, "Reverse": ct_stats_r}, index = ["m [lbf/A]", "b", "r^2"])
 
 # Graph forward direction thrust vs. current
-figc_f = plt.figure()
-figc_f.suptitle("Thrust vs. current (forward)", fontsize = 16)
-axc_f = plt.axes()
+if(len(current_f) != 0):
+    figc_f = plt.figure()
+    figc_f.suptitle("Thrust vs. current (forward)", fontsize = 16)
+    axc_f = plt.axes()
 
-axc_f.set_ylabel("Thrust [lbf]")
-axc_f.set_xlabel("Current [A]")
+    axc_f.set_ylabel("Thrust [lbf]")
+    axc_f.set_xlabel("Current [A]")
 
-plt.scatter(current_f, thrust_f)
-plt.plot(current_f, mymodel_f, color = "orange") 
+    plt.scatter(current_f, thrust_f)
+    plt.plot(current_f, mymodel_f, color = "orange") 
 
 # Graph reverse direction thrust vs. current
-figc_r = plt.figure()
-figc_r.suptitle("Thrust vs. current (reverse)", fontsize = 16)
-axc_r = plt.axes()
+if(len(current_r) != 0):
+    figc_r = plt.figure()
+    figc_r.suptitle("Thrust vs. current (reverse)", fontsize = 16)
+    axc_r = plt.axes()
 
-axc_r.set_ylabel("Thrust [lbf]")
-axc_r.set_xlabel("Current [A]")
+    axc_r.set_ylabel("Thrust [lbf]")
+    axc_r.set_xlabel("Current [A]")
 
-plt.scatter(current_r, thrust_r)
-plt.plot(current_r, mymodel_r, color = "orange")
+    plt.scatter(current_r, thrust_r)
+    plt.plot(current_r, mymodel_r, color = "orange")
 
 # Graph raw thrust vs. current
 figc_raw = plt.figure()
@@ -335,15 +342,17 @@ axc_raw.set_ylabel("Thrust [lbf]")
 axc_raw.set_xlabel("Current [A]")
 
 plt.scatter(i_avg, T_avg)
-axc_raw.plot(current_f, mymodel_f, color = "orange") # Overlay forward/reverse trendlines on to raw T/I plot
-axc_raw.plot(current_r, mymodel_r, color = "orange")
+
+# Overlay forward/reverse trendlines on to raw T/I plot
+if(len(current_f) != 0): axc_raw.plot(current_f, mymodel_f, color = "orange") 
+if(len(current_r) != 0): axc_raw.plot(current_r, mymodel_r, color = "orange")
 
 ### Save figures and files ###
 if not os.path.isdir(my_path + data_folder + fig_folder):
     os.makedirs(my_path + data_folder + fig_folder)
 figt.savefig(my_path + data_folder + fig_folder + ts_file)
-figc_f.savefig(my_path + data_folder + fig_folder + ct_file_f)
-figc_r.savefig(my_path + data_folder + fig_folder + ct_file_r)
+if(len(current_f)!=0): figc_f.savefig(my_path + data_folder + fig_folder + ct_file_f)
+if(len(current_r)!=0): figc_r.savefig(my_path + data_folder + fig_folder + ct_file_r)
 figc_raw.savefig(my_path + data_folder + fig_folder + ct_file_raw)
 fig_overlapped.savefig(my_path + data_folder + fig_folder + ts_overlapped_file)
 fig_fitted.savefig(my_path + data_folder + fig_folder + voltage_fit_file)
