@@ -1,6 +1,7 @@
 # Eventually reflect reverse direction of thrust vs. current such that thrust is always positive
 
 ### Import libraries ###
+from cgi import print_arguments
 import os
 import numpy as np
 import pandas as pd
@@ -23,6 +24,7 @@ def user_in(msg):
             if result[0] == '"' and result[len(result)-1] == '"':
                 result = result[1:len(result) - 1]
         except:
+            print("Error, invalid input, please re-type")
             continue
         else:
             return result
@@ -49,13 +51,12 @@ fig_folder = "\\figures"
 show_line = False # change to True if you want to show maximums and minimums on the overlayed chart 
 
 ### Read .log file, handling invalid user input ###
-data_file = user_in("Enter data file path: ")
 while True:
     try:
+        data_file = user_in("Enter data file path: ")
         fin = open(data_file, 'r') # fin is assigned to the file object returned by open()
     except IOError:
         print("Error, file entered does not exist, please re-type")
-        data_file = user_in("Enter data file path: ")
     else:
         lines = fin.readlines() # readlines() method returns a list containing each line of the file in string format
         fin.close() 
