@@ -103,12 +103,10 @@ while "<end" not in current_line and line < len(lines):
 
 ### Convert force, current and voltage lists into NumPy arrays ###
 force = np.array(force) * sf_force * lever_arm_ratio # apply scaling factors 
-current = np.array(current)
+current = np.array(current) * sf_current
 voltage = np.array(voltage) * sf_voltage
 power = np.multiply(current, voltage) # compute power
 time = np.array(time)
-
-print("Mean Current : ",np.mean(current))
 
 # Format timestamps such that time values are the value in seconds since beginning automated test 
 ref_time = time[0]
@@ -370,4 +368,3 @@ with open(my_path + data_folder + "\\stats.txt", mode = 'w') as file_object:
 
 ### Display all plots, data of interest -> last action in program, since plt.show() stalls execution ###
 #plt.show() 
-
